@@ -23,6 +23,7 @@ import (
 
 	"github.com/pulumi/pulumi/pkg/backend"
 	"github.com/pulumi/pulumi/pkg/backend/display"
+	"github.com/pulumi/pulumi/pkg/resource/config"
 	"github.com/pulumi/pulumi/pkg/workspace"
 	"github.com/stretchr/testify/assert"
 )
@@ -446,6 +447,60 @@ func TestInvalidTemplateName(t *testing.T) {
 
 		assert.Contains(t, err.Error(), "not found")
 	})
+}
+
+func TestParseConfigSuccess(t *testing.T) {
+	tests := []struct {
+		Array    []string
+		Path     bool
+		Expected config.Map
+	}{
+		{
+			Array:    []string{},
+			Expected: config.Map{},
+		},
+		{
+			Array: []string{"my:testKey"},
+			Expected: config.Map{
+				config.MustMakeKey("my", "testKey"): config.NewValue(""),
+			},
+		},
+		{
+			Array: []string{"my:testKey="},
+			Expected: config.Map{
+				config.MustMakeKey("my", "testKey"): config.NewValue(""),
+			},
+		},
+		{
+			Array: []string{"my:testKey=testValue"},
+			Expected: config.Map{
+				config.MustMakeKey("my", "testKey"): config.NewValue("testValue"),
+			},
+		},
+		{
+			Array: []string{"my:testKey=test=Value"},
+			Expected: config.Map{
+				config.MustMakeKey("my", "testKey"): config.NewValue("test=Value"),
+			},
+		},
+		{
+			Array: []string{
+				"my:testKey=testValue",
+				"my:testKey=rewritten",
+			},
+			Expected: config.Map{
+				config.MustMakeKey("my", "testKey"): config.NewValue("rewritten"),
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("%v", test), func(t *testing.T) {
+			actual, err := parseConfig(test.Array, test.Path)
+			assert.NoError(t, err)
+			assert.Equal(t, test.Expected, actual)
+		})
+	}
 }
 
 const projectName = "test_project"

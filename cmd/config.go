@@ -86,6 +86,7 @@ func newConfigCmd() *cobra.Command {
 
 func newConfigGetCmd(stack *string) *cobra.Command {
 	var jsonOut bool
+	var path bool
 
 	getCmd := &cobra.Command{
 		Use:   "get <key>",
@@ -106,17 +107,22 @@ func newConfigGetCmd(stack *string) *cobra.Command {
 				return errors.Wrap(err, "invalid configuration key")
 			}
 
-			return getConfig(s, key, jsonOut)
+			return getConfig(s, key, path, jsonOut)
 		}),
 	}
 	getCmd.Flags().BoolVarP(
 		&jsonOut, "json", "j", false,
 		"Emit output as JSON")
+	getCmd.PersistentFlags().BoolVar(
+		&path, "path", false,
+		"Indicates the key contains a path to nested property to set")
 
 	return getCmd
 }
 
 func newConfigRmCmd(stack *string) *cobra.Command {
+	var path bool
+
 	rmCmd := &cobra.Command{
 		Use:   "rm <key>",
 		Short: "Remove configuration value",
@@ -141,13 +147,17 @@ func newConfigRmCmd(stack *string) *cobra.Command {
 				return err
 			}
 
-			if ps.Config != nil {
-				delete(ps.Config, key)
+			err = ps.Config.Remove(key, path)
+			if err != nil {
+				return err
 			}
 
 			return saveProjectStack(s, ps)
 		}),
 	}
+	rmCmd.PersistentFlags().BoolVar(
+		&path, "path", false,
+		"Indicates the key contains a path to nested property to set")
 
 	return rmCmd
 }
@@ -226,6 +236,7 @@ func newConfigRefreshCmd(stack *string) *cobra.Command {
 func newConfigSetCmd(stack *string) *cobra.Command {
 	var plaintext bool
 	var secret bool
+	var path bool
 
 	setCmd := &cobra.Command{
 		Use:   "set <key> [value]",
@@ -301,12 +312,18 @@ func newConfigSetCmd(stack *string) *cobra.Command {
 				return err
 			}
 
-			ps.Config[key] = v
+			err = ps.Config.Set(key, v, path)
+			if err != nil {
+				return err
+			}
 
 			return saveProjectStack(s, ps)
 		}),
 	}
 
+	setCmd.PersistentFlags().BoolVar(
+		&path, "path", false,
+		"Indicates the key contains a path to nested property to set")
 	setCmd.PersistentFlags().BoolVar(
 		&plaintext, "plaintext", false,
 		"Save the value as plaintext (unencrypted)")
@@ -453,7 +470,7 @@ func listConfig(stack backend.Stack, showSecrets bool, jsonOut bool) error {
 	return nil
 }
 
-func getConfig(stack backend.Stack, key config.Key, jsonOut bool) error {
+func getConfig(stack backend.Stack, key config.Key, path, jsonOut bool) error {
 	ps, err := loadProjectStack(stack)
 	if err != nil {
 		return err
@@ -461,7 +478,11 @@ func getConfig(stack backend.Stack, key config.Key, jsonOut bool) error {
 
 	cfg := ps.Config
 
-	if v, ok := cfg[key]; ok {
+	v, ok, err := cfg.Get(key, path)
+	if err != nil {
+		return err
+	}
+	if ok {
 		var d config.Decrypter
 		if v.Secure() {
 			var err error
