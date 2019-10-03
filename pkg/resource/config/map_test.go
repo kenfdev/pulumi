@@ -905,6 +905,11 @@ func TestSetFail(t *testing.T) {
 				MustMakeKey("my", "name"): NewObjectValue(`["a","b","c"]`),
 			},
 		},
+		{
+			Key:   `my:key.secure`,
+			Path:  true,
+			Value: NewValue("value"),
+		},
 	}
 
 	for _, test := range tests {

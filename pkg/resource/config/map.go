@@ -272,6 +272,11 @@ func (m Map) Set(k Key, v Value, path bool) error {
 		return err
 	}
 
+	// Secure values are reserved, so return an error when attempting to add one.
+	if isSecure, _ := isSecureValue(cursor); isSecure {
+		return errors.New(`"secure" key in maps of length 1 are reserved`)
+	}
+
 	// Serialize the updated object as JSON, and save it in the config map.
 	json, err := json.Marshal(root[configKey.Name()])
 	if err != nil {
@@ -469,20 +474,25 @@ func setValue(container, key, value, containerParent, containerParentKey interfa
 //  - otherwise, returns the original value as-is
 func adjustObjectValue(v Value) interface{} {
 	contract.Assertf(!v.Object(), "v must not be an Object")
+
+	// If it's a secure value, return.
 	if v.Secure() {
 		return v
 	}
 
+	// If "false" or "true", return the boolean value.
 	if v.value == "false" {
 		return false
 	} else if v.value == "true" {
 		return true
 	}
 
+	// If it's convertible to an int, return the int.
 	i, err := strconv.Atoi(v.value)
 	if err == nil {
 		return i
 	}
 
-	return v
+	// Otherwise, just return the string value.
+	return v.value
 }

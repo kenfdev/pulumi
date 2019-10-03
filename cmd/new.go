@@ -723,7 +723,9 @@ func parseConfig(configArray []string, path bool) (config.Map, error) {
 			value = config.NewValue(kvp[1])
 		}
 
-		configMap.Set(key, value, path)
+		if err = configMap.Set(key, value, path); err != nil {
+			return nil, err
+		}
 	}
 	return configMap, nil
 }

@@ -691,6 +691,38 @@ func TestParseConfigSuccess(t *testing.T) {
 	}
 }
 
+func TestSetFail(t *testing.T) {
+	tests := []struct {
+		Array    []string
+		Path     bool
+		Expected config.Map
+	}{
+		{
+			Array: []string{`my:[""]=value`},
+			Path:  true,
+		},
+		{
+			Array: []string{"my:[0]=value"},
+			Path:  true,
+		},
+		{
+			Array: []string{`my:name[4]=value`},
+			Path:  true,
+		},
+		{
+			Array: []string{`my:key.secure=value`},
+			Path:  true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("%v", test), func(t *testing.T) {
+			_, err := parseConfig(test.Array, test.Path)
+			assert.Error(t, err)
+		})
+	}
+}
+
 const projectName = "test_project"
 const stackName = "test_stack"
 
