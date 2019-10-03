@@ -26,6 +26,8 @@ import (
 	"github.com/pulumi/pulumi/pkg/resource"
 )
 
+var errSecureKeyReserved = errors.New(`"secure" key in maps of length 1 are reserved`)
+
 // Map is a bag of config stored in the settings file.
 type Map map[Key]Value
 
@@ -176,6 +178,11 @@ func (m Map) Remove(k Key, path bool) error {
 			return nil
 		}
 		delete(t, k)
+
+		// Secure values are reserved, so return an error when attempting to add one.
+		if isSecure, _ := isSecureValue(t); isSecure {
+			return errSecureKeyReserved
+		}
 	}
 
 	// Now, marshal then unmarshal the value, which will handle detecting
@@ -274,7 +281,7 @@ func (m Map) Set(k Key, v Value, path bool) error {
 
 	// Secure values are reserved, so return an error when attempting to add one.
 	if isSecure, _ := isSecureValue(cursor); isSecure {
-		return errors.New(`"secure" key in maps of length 1 are reserved`)
+		return errSecureKeyReserved
 	}
 
 	// Serialize the updated object as JSON, and save it in the config map.

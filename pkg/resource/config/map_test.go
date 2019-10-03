@@ -556,6 +556,30 @@ func TestRemoveSuccess(t *testing.T) {
 	}
 }
 
+func TestRemoveFail(t *testing.T) {
+	tests := []struct {
+		Key    string
+		Config Map
+	}{
+		{
+			Key: `my:foo.bar`,
+			Config: Map{
+				MustMakeKey("my", "foo"): NewObjectValue(`{"bar":"baz","secure":"myvalue"}`),
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("%v", test), func(t *testing.T) {
+			key, err := ParseKey(test.Key)
+			assert.NoError(t, err)
+
+			err = test.Config.Remove(key, true /*path*/)
+			assert.Error(t, err)
+		})
+	}
+}
+
 func TestSetSuccess(t *testing.T) {
 	tests := []struct {
 		Key      string
@@ -861,6 +885,17 @@ func TestSetSuccess(t *testing.T) {
 				MustMakeKey("my", "testKey"): NewObjectValue(`[-1]`),
 			},
 		},
+		{
+			Key:   `my:key.secure`,
+			Path:  true,
+			Value: NewValue("value"),
+			Config: Map{
+				MustMakeKey("my", "key"): NewObjectValue(`{"bar":"baz"}`),
+			},
+			Expected: Map{
+				MustMakeKey("my", "key"): NewObjectValue(`{"bar":"baz","secure":"value"}`),
+			},
+		},
 	}
 
 	for _, test := range tests {
@@ -884,22 +919,26 @@ func TestSetFail(t *testing.T) {
 	tests := []struct {
 		Key    string
 		Value  Value
-		Path   bool
 		Config Map
 	}{
 		{
 			Key:   `my:[""]`,
-			Path:  true,
 			Value: NewValue("value"),
 		},
 		{
 			Key:   "my:[0]",
-			Path:  true,
+			Value: NewValue("value"),
+		},
+		{
+			Key:   `my:name[-1]`,
+			Value: NewValue("value"),
+		},
+		{
+			Key:   `my:name[1]`,
 			Value: NewValue("value"),
 		},
 		{
 			Key:   `my:name[4]`,
-			Path:  true,
 			Value: NewValue("value"),
 			Config: Map{
 				MustMakeKey("my", "name"): NewObjectValue(`["a","b","c"]`),
@@ -907,7 +946,6 @@ func TestSetFail(t *testing.T) {
 		},
 		{
 			Key:   `my:key.secure`,
-			Path:  true,
 			Value: NewValue("value"),
 		},
 	}
@@ -921,7 +959,7 @@ func TestSetFail(t *testing.T) {
 			key, err := ParseKey(test.Key)
 			assert.NoError(t, err)
 
-			err = test.Config.Set(key, test.Value, test.Path)
+			err = test.Config.Set(key, test.Value, true /*path*/)
 			assert.Error(t, err)
 		})
 	}
